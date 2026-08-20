@@ -1,500 +1,87 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Tabata Pro</title>
-<meta name="description" content="Temporizador Tabata optimizado con GPU y Web Audio API.">
-<meta name="theme-color" content="#0B0E11">
-
-<!-- Manifest PWA inyectado dinámicamente -->
-<link id="pwa-manifest" rel="manifest" href="">
-
-<style>
-/* ============================================================
-   SISTEMA DE DISEÑO Y TOKENS
-   ============================================================ */
-:root {
-  --bg: #0B0E11; --bg-elev: #12161C; --bg-elev-2: #181D24;
-  --ink: #F5F3EE; --ink-dim: #8B93A1; --ink-faint: #4E5561; --line: #232A33;
-  --prep: #FFD23F; --prep-ink: #231C00;
-  --work: #FF4B3E; --work-ink: #2A0500;
-  --rest: #3EC6FF; --rest-ink: #001A26;
-  --done: #2CE8A1; --done-ink: #00291C;
-  --idle: #5A6472;
-
-  --phase-color: var(--idle); --phase-ink: var(--ink);
-  
-  /* Fuentes nativas para Cero Latencia y Offline Total */
-  --font-display: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --ease: cubic-bezier(.22,.9,.28,1);
-}
-
-[data-theme="light"] {
-  --bg: #F3F1EA; --bg-elev: #FFFFFF; --bg-elev-2: #EAE7DE;
-  --ink: #15181C; --ink-dim: #565F6B; --ink-faint: #9CA3AC; --line: #DEDACE;
-}
-
-*, *::before, *::after { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--bg); color: var(--ink);
-  font-family: var(--font-display); -webkit-font-smoothing: antialiased;
-  transition: background 0.4s var(--ease), color 0.4s var(--ease);
-  overflow: hidden; height: 100dvh; display: flex; flex-direction: column;
-}
-
-button { font-family: inherit; cursor: pointer; border: none; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
-
-/* ============================================================
-   LAYOUT Y MODO ENFOQUE PROFUNDO
-   ============================================================ */
-.app {
-  display: flex; flex-direction: column; height: 100%;
-  max-width: 560px; margin: 0 auto; width: 100%;
-  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
-}
-
-/* Transiciones de Modo Enfoque */
-.topbar, .round-dots, .motivation, .stats-panel {
-  transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
-}
-.deep-focus .topbar, .deep-focus .round-dots, .deep-focus .motivation, .deep-focus .stats-panel {
-  opacity: 0; pointer-events: none; transform: translateY(-10px);
-}
-
-.topbar { display: flex; justify-content: space-between; padding: 16px 20px; }
-.brand h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
-
-/* Fase Badge */
-.phase-strip { display: flex; justify-content: center; margin-top: 10px; }
-.phase-badge {
-  font-weight: 800; font-size: 14px; letter-spacing: 2px;
-  padding: 6px 16px; border-radius: 99px;
-  background: var(--phase-color); color: var(--phase-ink);
-  transition: background 0.3s var(--ease), color 0.3s var(--ease);
-}
-
-/* Reloj y Anillo GPU */
-.clock-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.ring-holder { position: relative; width: min(80vw, 320px); height: min(80vw, 320px); }
-.ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-.ring-track { fill: none; stroke: var(--line); stroke-width: 8; }
-.ring-progress {
-  fill: none; stroke: var(--phase-color); stroke-width: 8; stroke-linecap: round;
-  /* La transición se controla vía JS para optimización GPU */
-}
-.ring-center {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-}
-.time-display {
-  font-size: clamp(64px, 18vw, 86px); font-weight: 800; font-variant-numeric: tabular-nums;
-  line-height: 1; letter-spacing: -2px; color: var(--ink);
-}
-.round-line { font-size: 14px; color: var(--ink-dim); font-weight: 600; margin-top: 8px; }
-
-/* ============================================================
-   CONTROLES GRANULARES
-   ============================================================ */
-.controls { display: flex; justify-content: center; gap: 12px; padding: 20px; }
-.btn {
-  height: 64px; border-radius: 32px; font-weight: 700; font-size: 16px;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  transition: transform 0.1s;
-}
-.btn:active { transform: scale(0.95); }
-.btn-primary { flex: 1; max-width: 200px; background: var(--phase-color); color: var(--phase-ink); }
-.btn-icon { width: 64px; background: var(--bg-elev); color: var(--ink); border: 2px solid var(--line); }
-.btn-icon:disabled { opacity: 0.3; pointer-events: none; }
-
-/* ============================================================
-   MODALES Y OVERLAYS
-   ============================================================ */
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 50;
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(4px);
-}
-.modal-overlay.active { opacity: 1; pointer-events: auto; }
-.modal {
-  background: var(--bg-elev); padding: 24px; border-radius: 20px; width: 90%; max-width: 340px;
-  text-align: center; border: 1px solid var(--line); transform: translateY(20px);
-  transition: transform 0.3s var(--ease);
-}
-.modal-overlay.active .modal { transform: translateY(0); }
-.modal h3 { margin: 0 0 10px; font-size: 20px; }
-.modal p { color: var(--ink-dim); margin-bottom: 20px; font-size: 14px; }
-.modal-actions { display: flex; gap: 10px; }
-.modal-actions .btn { flex: 1; height: 50px; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Tabata Pro</title>
+  <meta name="description" content="Temporizador Tabata optimizado, instalable offline y personalizable.">
+  <meta name="theme-color" content="#0B0E11">
+  <link id="pwa-manifest" rel="manifest" href="">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <div class="app" id="app">
+  <!-- Cabecera -->
   <header class="topbar">
-    <div class="brand"><h1>Tabata</h1></div>
-    <button class="btn btn-icon" id="btnSettings" style="width: 48px; height: 48px; border-radius: 12px; border:none;" aria-label="Ajustes">⚙️</button>
+    <div class="brand"><h1>Tabata Pro</h1></div>
+    <div class="topbar-actions">
+      <button class="btn-icon" id="btnStats" aria-label="Ver estadísticas">📊</button>
+      <button class="btn-icon" id="btnSettings" aria-label="Ajustes">⚙️</button>
+    </div>
   </header>
 
-  <div class="phase-strip"><span class="phase-badge" id="phaseBadge">LISTO</span></div>
+  <!-- Estado y Motivación -->
+  <div class="phase-strip">
+    <span class="phase-badge" id="phaseBadge" role="status" aria-live="polite">LISTO</span>
+  </div>
+  <p class="motivation" id="motivationText" aria-live="polite"></p>
 
+  <!-- Reloj Central (GPU) -->
   <main class="clock-wrap">
     <div class="ring-holder">
-      <svg class="ring-svg" viewBox="0 0 220 220">
+      <svg class="ring-svg" viewBox="0 0 220 220" aria-hidden="true">
         <circle class="ring-track" cx="110" cy="110" r="100"></circle>
         <circle class="ring-progress" id="ringProgress" cx="110" cy="110" r="100"></circle>
       </svg>
       <div class="ring-center">
-        <div class="time-display" id="timeDisplay">00:00</div>
+        <div class="time-display" id="timeDisplay" aria-label="Tiempo restante">00:00</div>
         <div class="round-line" id="roundLine">Configura tu entrenamiento</div>
       </div>
     </div>
   </main>
 
+  <!-- Controles -->
   <div class="controls">
-    <button class="btn btn-icon" id="btnStop" disabled aria-label="Detener">⏹</button>
-    <button class="btn btn-primary" id="btnPlayPause">▶ Comenzar</button>
-    <button class="btn btn-icon" id="btnPlus10" disabled aria-label="Sumar 10 segundos">+10s</button>
+    <button class="btn-icon btn-large" id="btnStop" disabled aria-label="Detener y reiniciar">⏹</button>
+    <button class="btn-primary" id="btnPlayPause">▶ Comenzar</button>
+    <button class="btn-icon btn-large" id="btnPlus10" disabled aria-label="Sumar 10 segundos">+10s</button>
   </div>
 </div>
 
-<!-- Modal Confirmación de Stop -->
-<div class="modal-overlay" id="modalStop">
+<!-- Modal Configuración -->
+<div class="modal-overlay" id="modalSettings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
   <div class="modal">
-    <h3>¿Detener entrenamiento?</h3>
-    <p>Se perderá el progreso de la sesión actual.</p>
-    <div class="modal-actions">
-      <button class="btn btn-icon" id="btnCancelStop" style="width: 100%;">Cancelar</button>
-      <button class="btn btn-primary" id="btnConfirmStop" style="background: var(--work); color: var(--work-ink);">Detener</button>
+    <h3 id="settingsTitle">Configuración</h3>
+    <div class="settings-grid">
+      <label>Prep. (s) <input type="number" id="inPrep" min="0" value="10"></label>
+      <label>Trabajo (s) <input type="number" id="inWork" min="1" value="20"></label>
+      <label>Descanso (s) <input type="number" id="inRest" min="0" value="10"></label>
+      <label>Rondas <input type="number" id="inRounds" min="1" value="8"></label>
+      <label>Ciclos <input type="number" id="inCycles" min="1" value="1"></label>
     </div>
+    <div class="theme-toggle">
+      <span>Modo Claro</span>
+      <input type="checkbox" id="themeSwitch" aria-label="Alternar tema oscuro o claro">
+    </div>
+    <button class="btn-primary full-width" id="btnSaveSettings">Guardar y Aplicar</button>
   </div>
 </div>
 
-<script>
-(() => {
-  'use strict';
+<!-- Modal Estadísticas -->
+<div class="modal-overlay" id="modalStats" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h3>Resumen del Día</h3>
+    <div class="stats-display">
+      <div class="stat-box">
+        <span class="stat-num" id="statMinutes">0</span>
+        <span class="stat-lbl">Min. Trabajo</span>
+      </div>
+    </div>
+    <button class="btn-primary full-width" id="btnCloseStats" style="margin-top: 15px;">Cerrar</button>
+  </div>
+</div>
 
-  /* ============================================================
-     1. PWA Y SERVICE WORKER (100% Offline)
-     ============================================================ */
-  const manifest = {
-    name: "Tabata Pro", short_name: "Tabata", display: "standalone",
-    background_color: "#0B0E11", theme_color: "#0B0E11",
-    icons: [{ src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iIzNGQzZGQiLz48L3N2Zz4=", sizes: "192x192", type: "image/svg+xml" }]
-  };
-  document.getElementById('pwa-manifest').href = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(manifest))}`;
-
-  // Service worker en línea mediante Blob
-  const swCode = `
-    const CACHE_NAME = 'tabata-v2';
-    self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
-    self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-    self.addEventListener('fetch', e => {
-      e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
-    });
-  `;
-  const swBlob = new Blob([swCode], { type: 'application/javascript' });
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(console.error);
-  }
-
-  /* ============================================================
-     2. ALMACENAMIENTO (IndexedDB Asíncrono)
-     ============================================================ */
-  const DB = {
-    init() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open('TabataDB', 1);
-        req.onupgradeneeded = e => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains('stats')) db.createObjectStore('stats', { keyPath: 'date' });
-          if (!db.objectStoreNames.contains('config')) db.createObjectStore('config', { keyPath: 'id' });
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-    },
-    async saveStat(workSeconds) {
-      const db = await this.init();
-      const date = new Date().toISOString().split('T')[0];
-      const tx = db.transaction('stats', 'readwrite');
-      const store = tx.objectStore('stats');
-      const stat = await new Promise(res => {
-        const getReq = store.get(date);
-        getReq.onsuccess = () => res(getReq.result || { date, seconds: 0 });
-      });
-      stat.seconds += workSeconds;
-      store.put(stat);
-    }
-  };
-
-  /* ============================================================
-     3. AUDIO LOOK-AHEAD SCHEDULER (Precisión Perfecta)
-     ============================================================ */
-  class AudioEngine {
-    constructor() {
-      this.ctx = null;
-      this.scheduleAheadTime = 0.1; // 100ms lookahead
-    }
-    init() {
-      if (!this.ctx) {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        this.ctx = new AC();
-      }
-      if (this.ctx.state === 'suspended') this.ctx.resume();
-    }
-    playTone(freq, duration, type, startTime) {
-      if(!this.ctx) return;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = type; osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(0.5, startTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-      osc.connect(gain).connect(this.ctx.destination);
-      osc.start(startTime); osc.stop(startTime + duration + 0.1);
-    }
-    beepShort(time) { this.playTone(880, 0.1, 'square', time); }
-    beepLong(time) { this.playTone(523.25, 0.4, 'sawtooth', time); }
-  }
-  const audio = new AudioEngine();
-
-  /* ============================================================
-     4. MOTOR DE ESTADO Y GPU RENDERER
-     ============================================================ */
-  const UI = {
-    ring: document.getElementById('ringProgress'),
-    time: document.getElementById('timeDisplay'),
-    badge: document.getElementById('phaseBadge'),
-    line: document.getElementById('roundLine'),
-    btnPlay: document.getElementById('btnPlayPause'),
-    btnStop: document.getElementById('btnStop'),
-    btn10: document.getElementById('btnPlus10'),
-    app: document.getElementById('app')
-  };
-
-  const RING_C = 2 * Math.PI * 100;
-  UI.ring.style.strokeDasharray = RING_C;
-  UI.ring.style.strokeDashoffset = 0;
-
-  const CONFIG = { prep: 10, work: 20, rest: 10, rounds: 8, cycles: 1 };
-  
-  let state = 'idle'; // idle, running, paused
-  let sequence = [];
-  let seqIndex = 0;
-  let phaseEndTime = 0;
-  let remainingAtPause = 0;
-  let lastBeepedSecond = -1;
-  let uiInterval = null;
-
-  function buildSequence() {
-    sequence = [];
-    if (CONFIG.prep > 0) sequence.push({ phase: 'prep', duration: CONFIG.prep, round: 0 });
-    for (let c = 1; c <= CONFIG.cycles; c++) {
-      for (let r = 1; r <= CONFIG.rounds; r++) {
-        sequence.push({ phase: 'work', duration: CONFIG.work, round: r, cycle: c });
-        if (CONFIG.rest > 0 && !(c === CONFIG.cycles && r === CONFIG.rounds)) {
-          sequence.push({ phase: 'rest', duration: CONFIG.rest, round: r, cycle: c });
-        }
-      }
-    }
-    sequence.push({ phase: 'done', duration: 0, round: CONFIG.rounds });
-  }
-
-  /* GPU-Accelerated Ring Transitions */
-  function startRingAnimation(durationSec, remainingSec) {
-    UI.ring.style.transition = 'none';
-    const initialOffset = RING_C * (1 - (remainingSec / durationSec));
-    UI.ring.style.strokeDashoffset = initialOffset;
-    
-    // Forzar reflow para que aplique el estado inicial sin transición
-    void UI.ring.getBoundingClientRect();
-    
-    // Iniciar transición delegada al GPU
-    UI.ring.style.transition = `stroke-dashoffset ${remainingSec}s linear`;
-    UI.ring.style.strokeDashoffset = RING_C;
-  }
-
-  function pauseRingAnimation() {
-    const currentOffset = getComputedStyle(UI.ring).strokeDashoffset;
-    UI.ring.style.transition = 'none';
-    UI.ring.style.strokeDashoffset = currentOffset;
-  }
-
-  function updateDOMPhase(seg) {
-    const meta = {
-      idle: { l: 'LISTO', c: '--idle', i: '--ink' },
-      prep: { l: 'PREPARACIÓN', c: '--prep', i: '--prep-ink' },
-      work: { l: 'TRABAJO', c: '--work', i: '--work-ink' },
-      rest: { l: 'DESCANSO', c: '--rest', i: '--rest-ink' },
-      done: { l: 'COMPLETADO', c: '--done', i: '--done-ink' }
-    };
-    const m = meta[seg.phase];
-    document.documentElement.style.setProperty('--phase-color', `var(${m.c})`);
-    document.documentElement.style.setProperty('--phase-ink', `var(${m.i})`);
-    UI.badge.textContent = m.l;
-    
-    if (seg.phase === 'done') UI.line.textContent = '¡Excelente trabajo!';
-    else if (seg.phase === 'prep') UI.line.textContent = 'Prepárate...';
-    else UI.line.textContent = `Ronda ${seg.round} de ${CONFIG.rounds}`;
-
-    // Haptics (Vibración)
-    if (navigator.vibrate) navigator.vibrate(seg.phase === 'work' ? [200, 50, 200] : 100);
-  }
-
-  /* Core Loop: Desacoplado a 250ms (solo UI numérica y Audio look-ahead) */
-  function tick() {
-    if (state !== 'running') return;
-    const now = performance.now();
-    let remaining = (phaseEndTime - now) / 1000;
-    const currentSeg = sequence[seqIndex];
-
-    // Transición de fase
-    if (remaining <= 0) {
-      if (currentSeg.phase === 'work') DB.saveStat(currentSeg.duration);
-      seqIndex++;
-      if (seqIndex >= sequence.length) {
-        stopEngine(true);
-        return;
-      }
-      const nextSeg = sequence[seqIndex];
-      phaseEndTime = now + (nextSeg.duration * 1000);
-      remaining = nextSeg.duration;
-      lastBeepedSecond = -1; // Reset leak-free
-      updateDOMPhase(nextSeg);
-      startRingAnimation(nextSeg.duration, remaining);
-      audio.beepLong(audio.ctx.currentTime);
-    }
-
-    // Actualización de texto (Reduciendo reflows)
-    const displaySecs = Math.max(0, Math.ceil(remaining));
-    const m = String(Math.floor(displaySecs / 60)).padStart(2, '0');
-    const s = String(displaySecs % 60).padStart(2, '0');
-    const timeStr = `${m}:${s}`;
-    if (UI.time.textContent !== timeStr) UI.time.textContent = timeStr;
-
-    // Audio Look-ahead (Bips 3, 2, 1)
-    if (remaining <= 3.2 && displaySecs <= 3 && displaySecs > 0) {
-      if (lastBeepedSecond !== displaySecs) {
-        lastBeepedSecond = displaySecs;
-        audio.beepShort(audio.ctx.currentTime);
-        if (navigator.vibrate) navigator.vibrate(50);
-      }
-    }
-  }
-
-  function togglePlay() {
-    audio.init();
-    if (state === 'idle') {
-      buildSequence();
-      seqIndex = 0;
-      updateDOMPhase(sequence[0]);
-      phaseEndTime = performance.now() + (sequence[0].duration * 1000);
-      startRingAnimation(sequence[0].duration, sequence[0].duration);
-      state = 'running';
-      UI.app.classList.add('deep-focus');
-      UI.btnStop.disabled = false;
-      UI.btn10.disabled = false;
-      UI.btnPlay.innerHTML = '⏸ Pausar';
-      uiInterval = setInterval(tick, 200);
-      if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(()=>{});
-    } else if (state === 'running') {
-      state = 'paused';
-      clearInterval(uiInterval);
-      remainingAtPause = phaseEndTime - performance.now();
-      pauseRingAnimation();
-      UI.app.classList.remove('deep-focus');
-      UI.btnPlay.innerHTML = '▶ Continuar';
-    } else if (state === 'paused') {
-      state = 'running';
-      phaseEndTime = performance.now() + remainingAtPause;
-      startRingAnimation(sequence[seqIndex].duration, remainingAtPause / 1000);
-      UI.app.classList.add('deep-focus');
-      UI.btnPlay.innerHTML = '⏸ Pausar';
-      uiInterval = setInterval(tick, 200);
-    }
-  }
-
-  function stopEngine(completed = false) {
-    state = 'idle';
-    clearInterval(uiInterval);
-    UI.ring.style.transition = 'stroke-dashoffset 0.5s ease';
-    UI.ring.style.strokeDashoffset = 0;
-    UI.app.classList.remove('deep-focus');
-    UI.btnPlay.innerHTML = '▶ Comenzar';
-    UI.btnStop.disabled = true;
-    UI.btn10.disabled = true;
-    
-    if (completed) {
-      updateDOMPhase({ phase: 'done', round: 0 });
-      UI.time.textContent = '00:00';
-    } else {
-      updateDOMPhase({ phase: 'idle', round: 0 });
-      UI.time.textContent = String(Math.floor(CONFIG.work/60)).padStart(2,'0') + ':' + String(CONFIG.work%60).padStart(2,'0');
-    }
-  }
-
-  function add10Seconds() {
-    if (state === 'idle') return;
-    const currentSeg = sequence[seqIndex];
-    currentSeg.duration += 10;
-    
-    if (state === 'running') {
-      phaseEndTime += 10000;
-      const remaining = (phaseEndTime - performance.now()) / 1000;
-      startRingAnimation(currentSeg.duration, remaining);
-    } else {
-      remainingAtPause += 10000;
-      const totalOffset = RING_C * (1 - ((remainingAtPause / 1000) / currentSeg.duration));
-      UI.ring.style.strokeDashoffset = totalOffset;
-      tick(); // Force UI update
-    }
-  }
-
-  /* ============================================================
-     5. EVENTOS, TECLADO Y RECONCILIACIÓN
-     ============================================================ */
-  UI.btnPlay.addEventListener('click', togglePlay);
-  
-  UI.btnPlus10.addEventListener('click', add10Seconds);
-
-  // Confirmación de Stop Modal
-  const modalStop = document.getElementById('modalStop');
-  UI.btnStop.addEventListener('click', () => {
-    if (state === 'running') togglePlay(); // Auto pausa
-    modalStop.classList.add('active');
-  });
-  document.getElementById('btnCancelStop').addEventListener('click', () => modalStop.classList.remove('active'));
-  document.getElementById('btnConfirmStop').addEventListener('click', () => {
-    modalStop.classList.remove('active');
-    stopEngine(false);
-  });
-
-  // Reconciliación al volver de background
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && state === 'running') {
-      // Forzar recálculo exacto del GPU y UI
-      const remaining = (phaseEndTime - performance.now()) / 1000;
-      if (remaining > 0) startRingAnimation(sequence[seqIndex].duration, remaining);
-      tick();
-    }
-  });
-
-  // Atajos de teclado
-  window.addEventListener('keydown', e => {
-    if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
-    if (e.code === 'KeyR' && state !== 'idle') {
-      e.preventDefault();
-      modalStop.classList.add('active');
-      if(state === 'running') togglePlay();
-    }
-  });
-
-  // Init UI
-  stopEngine(false);
-
-})();
-</script>
+<script src="app.js"></script>
 </body>
 </html>
