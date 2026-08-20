@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es" data-theme="dark" data-universo="dbz">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <title>Tabata Z</title>
+  <title>Tabata Multiverso</title>
   <meta name="theme-color" content="#0B0E11">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -11,7 +11,7 @@
 
 <div class="app" id="app">
   <header class="topbar">
-    <div class="brand"><h1>TABATA Z</h1></div>
+    <div class="brand"><h1 id="appTitle">TABATA Z</h1></div>
     <div class="topbar-actions">
       <button class="btn-icon" id="btnStats" aria-label="Ver estadísticas">📊</button>
       <button class="btn-icon" id="btnSettings" aria-label="Ajustes">⚙️</button>
@@ -26,10 +26,9 @@
   <main class="clock-wrap">
     <div class="ring-holder" id="ringHolder">
       <svg class="ring-svg" viewBox="0 0 220 220" aria-hidden="true">
-        <!-- Filtro para el Aura de Energía -->
         <defs>
-          <filter id="aura-glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="8" result="blur" />
+          <filter id="aura-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="10" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
@@ -44,36 +43,53 @@
   </main>
 
   <div class="controls">
-    <button class="btn-icon" id="btnStop" disabled aria-label="Detener y reiniciar">⏹</button>
+    <button class="btn-icon" id="btnStop" disabled aria-label="Detener">⏹</button>
     <button class="btn-icon" id="btnPrev" disabled aria-label="Fase anterior">⏮</button>
     <button class="btn-primary" id="btnPlayPause">▶ Comenzar</button>
     <button class="btn-icon" id="btnNext" disabled aria-label="Fase siguiente">⏭</button>
-    <button class="btn-icon" id="btnPlus10" disabled aria-label="Sumar 10 segundos">+10s</button>
+    <button class="btn-icon" id="btnPlus10" disabled aria-label="Sumar 10s">+10s</button>
   </div>
 </div>
 
-<!-- Modales -->
+<!-- Modal Configuración y Multiverso -->
 <div class="modal-overlay" id="modalSettings" role="dialog" aria-modal="true">
   <div class="modal">
-    <h3>Cámara del Tiempo</h3>
+    <h3>Configuración</h3>
+    
+    <div class="universe-selector">
+      <label for="themeSelector">Elige tu Universo</label>
+      <select id="themeSelector">
+        <option value="dbz">Guerrero Z (Saiyajin)</option>
+        <option value="starwars">Fuerza Jedi</option>
+        <option value="rocky">Semental Italiano (Boxeo)</option>
+        <option value="retro">Arcade 16-Bits</option>
+        <option value="spartan">Agogé Espartano</option>
+        <option value="matrix">La Matriz</option>
+        <option value="cyberpunk">Neon City</option>
+        <option value="samurai">Camino del Bushido</option>
+        <option value="doom">Slayer (Metal)</option>
+        <option value="hero">Héroe de Cómic</option>
+      </select>
+    </div>
+
     <div class="settings-grid">
       <label>Prep. (s) <input type="number" id="inPrep" min="0" value="10"></label>
-      <label>Combate (s) <input type="number" id="inWork" min="1" value="20"></label>
+      <label>Acción (s) <input type="number" id="inWork" min="1" value="20"></label>
       <label>Descanso (s) <input type="number" id="inRest" min="0" value="10"></label>
       <label>Rondas <input type="number" id="inRounds" min="1" value="8"></label>
       <label>Ciclos <input type="number" id="inCycles" min="1" value="1"></label>
     </div>
-    <button class="btn-primary full-width" id="btnSaveSettings">Guardar Entrenamiento</button>
+    <button class="btn-primary full-width" id="btnSaveSettings">Guardar y Aplicar</button>
   </div>
 </div>
 
 <div class="modal-overlay" id="modalStats" role="dialog" aria-modal="true">
   <div class="modal">
-    <h3>Poder Acumulado Hoy</h3>
+    <h3>Resumen del Día</h3>
     <div class="stats-display">
       <div class="stat-box">
         <span class="stat-num" id="statMinutes">0</span>
-        <span class="stat-lbl">Minutos de Combate</span>
+        <span class="stat-lbl">Minutos de Acción</span>
       </div>
     </div>
     <button class="btn-primary full-width" id="btnCloseStats" style="margin-top: 15px;">Cerrar</button>
