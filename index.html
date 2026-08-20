@@ -3,17 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <title>Tabata Pro</title>
-  <meta name="description" content="Temporizador Tabata optimizado, instalable offline y personalizable.">
+  <title>Tabata Z</title>
   <meta name="theme-color" content="#0B0E11">
-  <link id="pwa-manifest" rel="manifest" href="">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <div class="app" id="app">
   <header class="topbar">
-    <div class="brand"><h1>Tabata Pro</h1></div>
+    <div class="brand"><h1>TABATA Z</h1></div>
     <div class="topbar-actions">
       <button class="btn-icon" id="btnStats" aria-label="Ver estadísticas">📊</button>
       <button class="btn-icon" id="btnSettings" aria-label="Ajustes">⚙️</button>
@@ -21,24 +19,30 @@
   </header>
 
   <div class="phase-strip">
-    <span class="phase-badge" id="phaseBadge" role="status" aria-live="polite">LISTO</span>
+    <span class="phase-badge" id="phaseBadge" role="status" aria-live="polite">ESTADO BASE</span>
   </div>
-  <p class="motivation" id="motivationText" aria-live="polite"></p>
+  <p class="motivation" id="motivationText" aria-live="polite">Esperando al guerrero...</p>
 
   <main class="clock-wrap">
-    <div class="ring-holder">
+    <div class="ring-holder" id="ringHolder">
       <svg class="ring-svg" viewBox="0 0 220 220" aria-hidden="true">
+        <!-- Filtro para el Aura de Energía -->
+        <defs>
+          <filter id="aura-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="8" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
         <circle class="ring-track" cx="110" cy="110" r="100"></circle>
-        <circle class="ring-progress" id="ringProgress" cx="110" cy="110" r="100"></circle>
+        <circle class="ring-progress" id="ringProgress" cx="110" cy="110" r="100" filter="url(#aura-glow)"></circle>
       </svg>
       <div class="ring-center">
         <div class="time-display" id="timeDisplay" aria-label="Tiempo restante">00:00</div>
-        <div class="round-line" id="roundLine">Configura tu entrenamiento</div>
+        <div class="round-line" id="roundLine">Eleva tu Ki</div>
       </div>
     </div>
   </main>
 
-  <!-- Nuevos Controles Granulares -->
   <div class="controls">
     <button class="btn-icon" id="btnStop" disabled aria-label="Detener y reiniciar">⏹</button>
     <button class="btn-icon" id="btnPrev" disabled aria-label="Fase anterior">⏮</button>
@@ -48,33 +52,28 @@
   </div>
 </div>
 
-<!-- Modal Configuración -->
-<div class="modal-overlay" id="modalSettings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+<!-- Modales -->
+<div class="modal-overlay" id="modalSettings" role="dialog" aria-modal="true">
   <div class="modal">
-    <h3 id="settingsTitle">Cámara del Tiempo</h3>
+    <h3>Cámara del Tiempo</h3>
     <div class="settings-grid">
       <label>Prep. (s) <input type="number" id="inPrep" min="0" value="10"></label>
-      <label>Trabajo (s) <input type="number" id="inWork" min="1" value="20"></label>
+      <label>Combate (s) <input type="number" id="inWork" min="1" value="20"></label>
       <label>Descanso (s) <input type="number" id="inRest" min="0" value="10"></label>
       <label>Rondas <input type="number" id="inRounds" min="1" value="8"></label>
       <label>Ciclos <input type="number" id="inCycles" min="1" value="1"></label>
-    </div>
-    <div class="theme-toggle">
-      <span>Modo Claro</span>
-      <input type="checkbox" id="themeSwitch" aria-label="Alternar tema">
     </div>
     <button class="btn-primary full-width" id="btnSaveSettings">Guardar Entrenamiento</button>
   </div>
 </div>
 
-<!-- Modal Estadísticas -->
 <div class="modal-overlay" id="modalStats" role="dialog" aria-modal="true">
   <div class="modal">
-    <h3>Resumen del Día</h3>
+    <h3>Poder Acumulado Hoy</h3>
     <div class="stats-display">
       <div class="stat-box">
         <span class="stat-num" id="statMinutes">0</span>
-        <span class="stat-lbl">Min. Trabajo</span>
+        <span class="stat-lbl">Minutos de Combate</span>
       </div>
     </div>
     <button class="btn-primary full-width" id="btnCloseStats" style="margin-top: 15px;">Cerrar</button>
