@@ -1,8 +1,5 @@
 'use strict';
 
-/* ============================================================
-   1. CONFIGURACIÓN PWA Y MOTIVACIÓN
-   ============================================================ */
 const manifest = {
   name: "Tabata Pro", short_name: "Tabata", display: "standalone",
   background_color: "#0B0E11", theme_color: "#0B0E11",
@@ -10,27 +7,26 @@ const manifest = {
 };
 document.getElementById('pwa-manifest').href = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(manifest))}`;
 
-const quotes = [
-  "Respira profundo. Tú puedes.", "Mantén el ritmo.", "El descanso es parte del proceso.",
-  "Un round menos, un tú mejor.", "Concéntrate en el siguiente movimiento."
+// Banco de frases inspirado en Dragon Ball
+const dbzQuotes = [
+  "¡Eleva tu ki al máximo!",
+  "Supera tus propios límites, como un verdadero Saiyajin.",
+  "El poder surge de la necesidad, no del deseo.",
+  "¡Entrena hoy para vencer a tu Majin Buu de mañana!",
+  "¡No te rindas! Demuestra tu orgullo guerrero.",
+  "Incluso la clase baja puede superar a la élite si se esfuerza.",
+  "Siente la energía... ¡y expúlsala de golpe!",
+  "¡Kaio-ken aumentado a 20 veces!",
+  "Toda batalla es una oportunidad para volverte más fuerte."
 ];
 
-/* ============================================================
-   2. SCREEN WAKE LOCK API (Prevención de apagado)
-   ============================================================ */
 let wakeLock = null;
 async function requestWakeLock() {
-  try {
-    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-  } catch (err) { console.warn('Wake Lock no disponible', err); }
+  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); }
+  catch (err) {}
 }
-function releaseWakeLock() {
-  if (wakeLock) { wakeLock.release().then(() => wakeLock = null); }
-}
+function releaseWakeLock() { if (wakeLock) wakeLock.release().then(() => wakeLock = null); }
 
-/* ============================================================
-   3. ALMACENAMIENTO (IndexedDB Asíncrono)
-   ============================================================ */
 const DB = {
   init() {
     return new Promise((resolve, reject) => {
@@ -66,9 +62,6 @@ const DB = {
   }
 };
 
-/* ============================================================
-   4. AUDIO LOOK-AHEAD SCHEDULER
-   ============================================================ */
 class AudioEngine {
   constructor() { this.ctx = null; }
   init() {
@@ -91,15 +84,13 @@ class AudioEngine {
 }
 const audio = new AudioEngine();
 
-/* ============================================================
-   5. MÁQUINA DE ESTADOS Y GPU RENDERER
-   ============================================================ */
 const UI = {
   ring: document.getElementById('ringProgress'), time: document.getElementById('timeDisplay'),
   badge: document.getElementById('phaseBadge'), line: document.getElementById('roundLine'),
   motivation: document.getElementById('motivationText'), app: document.getElementById('app'),
   btnPlay: document.getElementById('btnPlayPause'), btnStop: document.getElementById('btnStop'),
-  btn10: document.getElementById('btnPlus10')
+  btn10: document.getElementById('btnPlus10'), btnPrev: document.getElementById('btnPrev'),
+  btnNext: document.getElementById('btnNext')
 };
 
 const RING_C = 2 * Math.PI * 100;
@@ -109,7 +100,6 @@ let CONFIG = { prep: 10, work: 20, rest: 10, rounds: 8, cycles: 1 };
 let state = 'idle', sequence = [], seqIndex = 0, phaseEndTime = 0, remainingAtPause = 0;
 let lastBeepedSecond = -1, uiInterval = null;
 
-// Cargar Configuración de LocalStorage
 const savedConfig = localStorage.getItem('tabata_cfg');
 if(savedConfig) {
   CONFIG = JSON.parse(savedConfig);
@@ -137,7 +127,7 @@ function buildSequence() {
 function startRingAnimation(durationSec, remainingSec) {
   UI.ring.style.transition = 'none';
   UI.ring.style.strokeDashoffset = RING_C * (1 - (remainingSec / durationSec));
-  void UI.ring.getBoundingClientRect(); // Reflow
+  void UI.ring.getBoundingClientRect(); 
   UI.ring.style.transition = `stroke-dashoffset ${remainingSec}s linear`;
   UI.ring.style.strokeDashoffset = RING_C;
 }
@@ -150,24 +140,23 @@ function pauseRingAnimation() {
 
 function updateDOMPhase(seg) {
   const meta = {
-    idle: { l: 'LISTO', c: '--idle', i: '--ink' },
-    prep: { l: 'PREPARACIÓN', c: '--prep', i: '--prep-ink' },
-    work: { l: 'TRABAJO', c: '--work', i: '--work-ink' },
-    rest: { l: 'DESCANSO', c: '--rest', i: '--rest-ink' },
-    done: { l: 'COMPLETADO', c: '--done', i: '--done-ink' }
+    idle: { l: 'CÁMARA DEL TIEMPO', c: '--idle', i: '--ink' },
+    prep: { l: 'AUMENTA TU KI', c: '--prep', i: '--prep-ink' },
+    work: { l: 'COMBATE', c: '--work', i: '--work-ink' },
+    rest: { l: 'RECUPERACIÓN', c: '--rest', i: '--rest-ink' },
+    done: { l: 'NIVEL SUPERADO', c: '--done', i: '--done-ink' }
   };
   const m = meta[seg.phase];
   document.documentElement.style.setProperty('--phase-color', `var(${m.c})`);
   document.documentElement.style.setProperty('--phase-ink', `var(${m.i})`);
   UI.badge.textContent = m.l;
   
-  if (seg.phase === 'done') UI.line.textContent = '¡Excelente trabajo!';
-  else if (seg.phase === 'prep') UI.line.textContent = 'Prepárate...';
+  if (seg.phase === 'done') UI.line.textContent = '¡Entrenamiento finalizado!';
+  else if (seg.phase === 'prep') UI.line.textContent = 'Prepárate para la batalla...';
   else UI.line.textContent = `Ronda ${seg.round} de ${CONFIG.rounds} (Ciclo ${seg.cycle}/${CONFIG.cycles})`;
 
-  // Motivación dinámica y Hápticos
   if (seg.phase === 'prep' || seg.phase === 'rest') {
-    UI.motivation.textContent = quotes[Math.floor(Math.random() * quotes.length)];
+    UI.motivation.textContent = dbzQuotes[Math.floor(Math.random() * dbzQuotes.length)];
   } else { UI.motivation.textContent = ""; }
 
   if (navigator.vibrate) navigator.vibrate(seg.phase === 'work' ? [200, 50, 200] : 100);
@@ -204,6 +193,13 @@ function tick() {
   }
 }
 
+function setControlsEnabled(enabled) {
+  UI.btnStop.disabled = !enabled;
+  UI.btn10.disabled = !enabled;
+  UI.btnPrev.disabled = !enabled;
+  UI.btnNext.disabled = !enabled;
+}
+
 function togglePlay() {
   audio.init();
   if (state === 'idle') {
@@ -213,8 +209,8 @@ function togglePlay() {
     startRingAnimation(sequence[0].duration, sequence[0].duration);
     state = 'running';
     UI.app.classList.add('deep-focus');
-    UI.btnStop.disabled = false; UI.btn10.disabled = false;
-    UI.btnPlay.innerHTML = '⏸ Pausar';
+    setControlsEnabled(true);
+    UI.btnPlay.innerHTML = '⏸ Pausa';
     uiInterval = setInterval(tick, 200);
     requestWakeLock();
   } else if (state === 'running') {
@@ -229,7 +225,7 @@ function togglePlay() {
     phaseEndTime = performance.now() + remainingAtPause;
     startRingAnimation(sequence[seqIndex].duration, remainingAtPause / 1000);
     UI.app.classList.add('deep-focus');
-    UI.btnPlay.innerHTML = '⏸ Pausar';
+    UI.btnPlay.innerHTML = '⏸ Pausa';
     uiInterval = setInterval(tick, 200);
     requestWakeLock();
   }
@@ -241,7 +237,7 @@ function stopEngine(completed = false) {
   UI.ring.style.strokeDashoffset = 0;
   UI.app.classList.remove('deep-focus');
   UI.btnPlay.innerHTML = '▶ Comenzar';
-  UI.btnStop.disabled = true; UI.btn10.disabled = true;
+  setControlsEnabled(false);
   releaseWakeLock();
   
   if (completed) {
@@ -252,11 +248,48 @@ function stopEngine(completed = false) {
   }
 }
 
+// Lógica de Salto de Fase (Adelante / Atrás)
+function skipPhase(direction) {
+  if (state === 'idle') return;
+  
+  const currentSeg = sequence[seqIndex];
+  const now = performance.now();
+  let remaining = state === 'running' ? (phaseEndTime - now) / 1000 : remainingAtPause / 1000;
+
+  // Guarda el tiempo trabajado si saltamos a mitad de un combate
+  if (currentSeg.phase === 'work') {
+    const elapsed = currentSeg.duration - Math.max(0, remaining);
+    if (elapsed > 0) DB.saveWork(elapsed);
+  }
+
+  if (direction === 'next' && seqIndex < sequence.length - 1) { seqIndex++; } 
+  else if (direction === 'prev' && seqIndex > 0) { seqIndex--; } 
+  else { return; }
+
+  const nextSeg = sequence[seqIndex];
+  remainingAtPause = nextSeg.duration * 1000;
+  phaseEndTime = now + remainingAtPause;
+  lastBeepedSecond = -1;
+  
+  updateDOMPhase(nextSeg);
+  
+  if (state === 'running') {
+    startRingAnimation(nextSeg.duration, nextSeg.duration);
+    audio.beepLong(audio.ctx.currentTime);
+  } else {
+    pauseRingAnimation();
+    UI.ring.style.strokeDashoffset = 0;
+    UI.time.textContent = `${String(Math.floor(nextSeg.duration / 60)).padStart(2, '0')}:${String(nextSeg.duration % 60).padStart(2, '0')}`;
+  }
+}
+
 /* ============================================================
-   6. EVENTOS (UI, Settings, Stats y Teclado)
+   EVENTOS
    ============================================================ */
 UI.btnPlay.addEventListener('click', togglePlay);
 UI.btnStop.addEventListener('click', () => { if(confirm("¿Detener sesión actual?")) stopEngine(false); });
+UI.btnPrev.addEventListener('click', () => skipPhase('prev'));
+UI.btnNext.addEventListener('click', () => skipPhase('next'));
 UI.btn10.addEventListener('click', () => {
   if (state === 'idle') return;
   sequence[seqIndex].duration += 10;
@@ -266,7 +299,6 @@ UI.btn10.addEventListener('click', () => {
   } else { remainingAtPause += 10000; tick(); }
 });
 
-// Settings Modal
 const mSettings = document.getElementById('modalSettings');
 document.getElementById('btnSettings').addEventListener('click', () => mSettings.classList.add('active'));
 document.getElementById('btnSaveSettings').addEventListener('click', () => {
@@ -279,10 +311,9 @@ document.getElementById('btnSaveSettings').addEventListener('click', () => {
   };
   localStorage.setItem('tabata_cfg', JSON.stringify(CONFIG));
   mSettings.classList.remove('active');
-  if(state === 'idle') stopEngine(false); // Refresca UI
+  if(state === 'idle') stopEngine(false); 
 });
 
-// Stats Modal
 const mStats = document.getElementById('modalStats');
 document.getElementById('btnStats').addEventListener('click', async () => {
   const seconds = await DB.getTodayStats();
@@ -291,15 +322,14 @@ document.getElementById('btnStats').addEventListener('click', async () => {
 });
 document.getElementById('btnCloseStats').addEventListener('click', () => mStats.classList.remove('active'));
 
-// Tema
-const themeSwitch = document.getElementById('themeSwitch');
-themeSwitch.addEventListener('change', (e) => {
+document.getElementById('themeSwitch').addEventListener('change', (e) => {
   document.documentElement.setAttribute('data-theme', e.target.checked ? 'light' : 'dark');
 });
 
-// Atajos teclado
 window.addEventListener('keydown', e => {
   if (e.code === 'Space' && !mSettings.classList.contains('active')) { e.preventDefault(); togglePlay(); }
+  if (e.code === 'ArrowRight' && state !== 'idle') skipPhase('next');
+  if (e.code === 'ArrowLeft' && state !== 'idle') skipPhase('prev');
 });
 
-stopEngine(false); // Init
+stopEngine(false);
