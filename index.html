@@ -12,7 +12,6 @@
 <body>
 
 <div class="app" id="app">
-  <!-- Cabecera -->
   <header class="topbar">
     <div class="brand"><h1>Tabata Pro</h1></div>
     <div class="topbar-actions">
@@ -21,13 +20,11 @@
     </div>
   </header>
 
-  <!-- Estado y Motivación -->
   <div class="phase-strip">
     <span class="phase-badge" id="phaseBadge" role="status" aria-live="polite">LISTO</span>
   </div>
   <p class="motivation" id="motivationText" aria-live="polite"></p>
 
-  <!-- Reloj Central (GPU) -->
   <main class="clock-wrap">
     <div class="ring-holder">
       <svg class="ring-svg" viewBox="0 0 220 220" aria-hidden="true">
@@ -41,18 +38,20 @@
     </div>
   </main>
 
-  <!-- Controles -->
+  <!-- Nuevos Controles Granulares -->
   <div class="controls">
-    <button class="btn-icon btn-large" id="btnStop" disabled aria-label="Detener y reiniciar">⏹</button>
+    <button class="btn-icon" id="btnStop" disabled aria-label="Detener y reiniciar">⏹</button>
+    <button class="btn-icon" id="btnPrev" disabled aria-label="Fase anterior">⏮</button>
     <button class="btn-primary" id="btnPlayPause">▶ Comenzar</button>
-    <button class="btn-icon btn-large" id="btnPlus10" disabled aria-label="Sumar 10 segundos">+10s</button>
+    <button class="btn-icon" id="btnNext" disabled aria-label="Fase siguiente">⏭</button>
+    <button class="btn-icon" id="btnPlus10" disabled aria-label="Sumar 10 segundos">+10s</button>
   </div>
 </div>
 
 <!-- Modal Configuración -->
 <div class="modal-overlay" id="modalSettings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
   <div class="modal">
-    <h3 id="settingsTitle">Configuración</h3>
+    <h3 id="settingsTitle">Cámara del Tiempo</h3>
     <div class="settings-grid">
       <label>Prep. (s) <input type="number" id="inPrep" min="0" value="10"></label>
       <label>Trabajo (s) <input type="number" id="inWork" min="1" value="20"></label>
@@ -62,9 +61,9 @@
     </div>
     <div class="theme-toggle">
       <span>Modo Claro</span>
-      <input type="checkbox" id="themeSwitch" aria-label="Alternar tema oscuro o claro">
+      <input type="checkbox" id="themeSwitch" aria-label="Alternar tema">
     </div>
-    <button class="btn-primary full-width" id="btnSaveSettings">Guardar y Aplicar</button>
+    <button class="btn-primary full-width" id="btnSaveSettings">Guardar Entrenamiento</button>
   </div>
 </div>
 
